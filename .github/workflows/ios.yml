@@ -30,9 +30,6 @@ jobs:
     - name: Install dependencies (npm install instead of npm ci)
       run: npm install  # Essayer npm install au lieu de npm ci pour contourner l'erreur
 
-    - name: Build web app
-      run: npm run build
-
     - name: Install Capacitor iOS dependencies
       run: |
         npm install @capacitor/ios
