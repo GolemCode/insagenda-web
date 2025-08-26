@@ -1,0 +1,14 @@
+{
+	"name": "INSAgenda Web",
+	"short_name": "INSAgenda",
+	"start_url": ".",
+	"display": "standalone",
+	"background_color": "#0b0c10",
+	"theme_color": "#121218",
+	"lang": "fr",
+	"dir": "ltr",
+	"scope": ".",
+	"categories": ["productivity", "education"],
+	"description": "Emploi du temps depuis une URL ICS, filtres de cours, navigation par jours.",
+	"icons": []
+} 
