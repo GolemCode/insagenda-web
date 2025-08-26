@@ -1,0 +1,20 @@
+const config = {
+  appId: 'com.example.insagenda',
+  appName: 'INSAgenda',
+  webDir: 'dist',
+  "bundledWebRuntime": false,
+  "ios": {
+    "scheme": "App"
+  },
+  server: {
+    cleartext: true,
+    allowNavigation: ['*']
+  },
+  plugins: {
+    CapacitorHttp: {
+      enabled: true,
+    }
+  }
+};
+
+module.exports = config; 

@@ -1,0 +1,121 @@
+:root {
+	--bg: #0b0c10;
+	--surface: #121218;
+	--text: #e6e6e6;
+	--muted: #a0a0a0;
+	--primary: #4da3ff;
+	--accent: #7dd3fc;
+	--border: #23232b;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+	margin: 0;
+	padding-top: env(safe-area-inset-top);
+	padding-left: env(safe-area-inset-left);
+	padding-right: env(safe-area-inset-right);
+	font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+	background: var(--bg);
+	color: var(--text);
+	display: grid;
+	grid-template-columns: 280px 1fr;
+	grid-template-rows: auto 1fr;
+	grid-template-areas: "topbar topbar" "drawer main";
+}
+
+.topbar {
+	grid-area: topbar;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--border);
+	background: var(--surface);
+}
+.topbar h1 { margin: 0; font-size: 18px; font-weight: 600; cursor: pointer; }
+.topbar .actions { display: flex; gap: 8px; }
+button { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+button:hover { border-color: var(--primary); }
+
+.drawer {
+	grid-area: drawer;
+	border-right: 1px solid var(--border);
+	padding: 12px;
+	background: #0f0f15;
+}
+.drawer h2 { margin: 0 0 10px; font-size: 14px; color: var(--muted); }
+.filter-tools { display: flex; gap: 8px; margin-bottom: 8px; }
+
+main { grid-area: main; padding: 12px; }
+
+.loading, .no-events { margin: 16px; color: var(--muted); }
+.hidden { display: none; }
+
+.events { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.event { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--surface); }
+.event .summary { font-weight: 600; margin-bottom: 6px; }
+.event .meta { color: var(--muted); font-size: 12px; display: flex; gap: 10px; margin-bottom: 6px; }
+.event .desc { white-space: pre-wrap; color: #d6d6d6; font-size: 13px; }
+
+.filter-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+.filter-item input { width: 16px; height: 16px; }
+
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: grid; place-items: center; }
+.modal.hidden { display: none; }
+.modal-content { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; width: min(520px, 92vw); padding: 16px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+
+.calendar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.calendar-header h3 { margin: 0; }
+.calendar-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 8px; text-align: center; font-weight: 600; color: var(--muted); }
+.calendar-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.calendar-day { padding: 8px; text-align: center; cursor: pointer; border-radius: 6px; border: 1px solid transparent; }
+.calendar-day:hover { border-color: var(--primary); }
+.calendar-day.today { background: var(--primary); color: white; }
+.calendar-day.selected { background: var(--accent); color: var(--bg); }
+.calendar-day.other-month { color: var(--muted); }
+.calendar-day.has-events { font-weight: 600; }
+
+@media (max-width: 900px) {
+	body { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
+	.drawer { display: none; }
+	body.drawer-open .drawer { display: block; position: fixed; top: 52px; left: 0; bottom: 0; width: 84vw; max-width: 320px; z-index: 10; box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
+	body.drawer-open main { filter: blur(0.5px); }
+} 
+
+body.drawer-open .drawer {
+  overflow-y: auto;
+  height: calc(100vh - 52px); /* pour que le drawer prenne bien la hauteur dispo */
+  /* tu as déjà position: fixed, left, top, bottom, etc. */
+}
+
+#courseFilters {
+	flex-grow: 1;         /* prendre tout l'espace restant */
+	overflow-y: auto;    /* activer scroll vertical si nécessaire */
+	padding-right: 8px;  /* éviter que le contenu soit caché derrière la scrollbar */
+}
+
+/* Ajoutez ces styles à votre CSS */
+#overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+    display: none;
+}
+
+body.drawer-open #overlay {
+    display: block;
+}
+
+/* Assurez-vous que le drawer a un z-index plus élevé */
+#drawer {
+    z-index: 999;
+    /* autres styles existants */
+}
+
+  
