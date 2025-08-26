@@ -7,9 +7,17 @@
 	<meta name="apple-mobile-web-app-capable" content="yes">
 	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 	<meta name="theme-color" content="#121218">
-	<link rel="manifest" href="manifest.webmanifest">
-	<link rel="apple-touch-icon" href="logo192.png">
+	<link rel="manifest" href="manifest.webmanifest" crossorigin="use-credentials" >
+	<link rel="apple-touch-icon" href="icons/icon-192.webp">
 	<link rel="stylesheet" href="styles.css">
+	<meta name="application-name" content="INSAgenda">
+	<meta name="apple-mobile-web-app-title" content="INSAgenda">
+	<meta name="description" content="Emploi du temps depuis une URL ICS, filtres de cours, navigation par jours.">
+	<meta name="format-detection" content="telephone=no">
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="msapplication-config" content="/browserconfig.xml">
+	<meta name="msapplication-TileColor" content="#121218">
+	<meta name="msapplication-tap-highlight" content="no">
 </head>
 <body>
 	<header class="topbar">
@@ -44,7 +52,7 @@
 	<div id="settingsModal" class="modal hidden">
 		<div class="modal-content">
 			<h3>Configurer l'URL ICS</h3>
-			<input id="icsUrlInput" type="url" placeholder="https://…/calendar.ics" />
+			<input id="icsUrlInput" type="url" placeholder="https://cocktail.insa-rouen.fr/ics/edt-ade/..." />
 			<div class="modal-actions">
 				<button id="saveUrl">Enregistrer</button>
 				<button id="cancelSettings">Annuler</button>

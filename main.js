@@ -303,41 +303,58 @@ function render() {
 /* ---------- fetch / chargement ---------- */
 
 async function fetchAndLoad(url) {
-	ui.loading.classList.remove('hidden');
-	ui.errorBanner.classList.add('hidden');
-	try {
-		const res = await fetch(url, { cache: 'no-store' });
-		if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-		let text = await res.text();
-		if (!text) throw new Error('Réponse vide');
-		const events = parseICS(text);
-		appState.allEvents = events;
-		appState.uniqueCourseNames = computeUniqueCourseNames(events);
-		appState.lastUpdated = Date.now().toString();
-		localStorage.setItem(STORAGE_KEYS.eventsJson, JSON.stringify(events.map(e => ({...e, start: e.start.toISOString(), end: e.end.toISOString()}))));
-		localStorage.setItem(STORAGE_KEYS.lastUpdated, appState.lastUpdated);
-		if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
-			appState.selectedCourses = new Set(appState.uniqueCourseNames);
-			persistFilters();
-		}
-		renderFilters();
-		render();
-	} catch (e) {
-		console.error('Erreur ICS:', e);
-		ui.errorBanner.textContent = `Erreur ICS: ${e.message || e}`;
-		ui.errorBanner.classList.remove('hidden');
-		appState.allEvents = [];
-		appState.uniqueCourseNames = [];
-		appState.selectedCourses = new Set();
-		localStorage.removeItem(STORAGE_KEYS.eventsJson);
-		localStorage.removeItem(STORAGE_KEYS.lastUpdated);
-		persistFilters();
-		renderFilters();
-		render();
-	} finally {
-		ui.loading.classList.add('hidden');
-	}
+    ui.loading.classList.remove('hidden');
+    ui.errorBanner.classList.add('hidden');
+    try {
+        // Utilisation du service CORS Proxy (corsproxy.io) pour contourner CORS
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+
+        const res = await fetch(proxyUrl, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        
+        let text = await res.text();
+        if (!text) throw new Error('Réponse vide');
+
+        const events = parseICS(text);
+        appState.allEvents = events;
+        appState.uniqueCourseNames = computeUniqueCourseNames(events);
+        appState.lastUpdated = Date.now().toString();
+        
+        // Stockage des événements dans le localStorage avec dates ISO
+        localStorage.setItem(STORAGE_KEYS.eventsJson, JSON.stringify(events.map(e => ({
+            ...e, start: e.start.toISOString(), end: e.end.toISOString()
+        }))));
+        
+        localStorage.setItem(STORAGE_KEYS.lastUpdated, appState.lastUpdated);
+
+        // Si aucun cours sélectionné, on sélectionne tous les cours par défaut
+        if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
+            appState.selectedCourses = new Set(appState.uniqueCourseNames);
+            persistFilters();
+        }
+
+        renderFilters();
+        render();
+    } catch (e) {
+        console.error('Erreur ICS:', e);
+        ui.errorBanner.textContent = `Erreur ICS: ${e.message || e}`;
+        ui.errorBanner.classList.remove('hidden');
+        
+        appState.allEvents = [];
+        appState.uniqueCourseNames = [];
+        appState.selectedCourses = new Set();
+        
+        localStorage.removeItem(STORAGE_KEYS.eventsJson);
+        localStorage.removeItem(STORAGE_KEYS.lastUpdated);
+        persistFilters();
+        
+        renderFilters();
+        render();
+    } finally {
+        ui.loading.classList.add('hidden');
+    }
 }
+
 
 /* ---------- navigation date ---------- */
 
@@ -546,5 +563,13 @@ render();
 
 // PWA: register service worker
 if ('serviceWorker' in navigator) {
-	navigator.serviceWorker.register('./sw.js').catch(console.error);
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+                console.log('Service Worker enregistré avec succès:', registration);
+            })
+            .catch((error) => {
+                console.log('Erreur lors de l\'enregistrement du Service Worker:', error);
+            });
+    });
 }
