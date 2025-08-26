@@ -25,10 +25,11 @@ jobs:
     - name: Build web app
       run: npm run build
 
-    - name: Install Capacitor iOS dependencies
-      run: |
-        npm install @capacitor/ios
-        npx cap add ios
+    # Si le dossier ios existe déjà dans le repo, cette étape est inutile
+    # - name: Install Capacitor iOS dependencies
+    #   run: npm install @capacitor/ios
+    # - name: Add iOS platform
+    #   run: npx cap add ios
 
     - name: Sync iOS project
       run: npx cap sync ios
