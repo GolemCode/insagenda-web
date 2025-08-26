@@ -24,16 +24,12 @@ jobs:
         node -v
         npm -v
 
-    - name: List project files
-      run: ls -la
-
     - name: Install dependencies (npm install instead of npm ci)
       run: npm install  # Essayer npm install au lieu de npm ci pour contourner l'erreur
 
     - name: Install Capacitor iOS dependencies
       run: |
         npm install @capacitor/ios
-        npx cap add ios
 
     - name: Sync iOS project
       run: npx cap sync ios
