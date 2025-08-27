@@ -27,9 +27,6 @@ const ui = {
 	saveUrl: document.getElementById('saveUrl'),
 	drawer: document.getElementById('drawer'),
 	cancelSettings: document.getElementById('cancelSettings'),
-	loading: document.getElementById('loading'),
-	noEvents: document.getElementById('noEvents'),
-	missingUrl: document.getElementById('missingUrl'),
 	errorBanner: document.getElementById('errorBanner'),
 	lastUpdated: document.getElementById('lastUpdated'),
 	events: document.getElementById('events'),
@@ -268,6 +265,7 @@ function render() {
 
 const toast = document.getElementById('toast');
 let toastTimeout;
+let isSwiping = false;
 
 function showToast(message, type = 'error', duration = 3000) {
   if (!toast) return;
@@ -287,28 +285,54 @@ function hideToast() {
   toast.classList.remove('show');
   toastTimeout = setTimeout(() => {
     toast.className = 'toast hidden'; // remet à l'état initial
-  }, 500); // doit correspondre à la durée de transition
+  }, 500); // correspond à la durée de la transition
 }
 
-// swipe pour fermer
 toast.addEventListener('touchstart', e => {
   startY = e.touches[0].clientY;
+  isSwiping = false; // Réinitialiser le flag à chaque nouveau touch
 });
+
 toast.addEventListener('touchmove', e => {
   const dy = e.touches[0].clientY - startY;
-  if (dy < -20) { // swipe vers le haut
-    hideToast();
+
+  // Empêcher le comportement par défaut (comme le défilement)
+  e.preventDefault();
+
+  if (dy < -20 && !isSwiping) { // Détecter le début du swipe vers le haut
+    isSwiping = true;
+  }
+
+  if (isSwiping) {
+    // Déplacer le toast vers le haut avec un facteur d'échelle
+    toast.style.transform = `translateX(-50%) translateY(${dy}px)`;
   }
 });
+
+toast.addEventListener('touchend', e => {
+  const dy = e.changedTouches[0].clientY - startY;
+
+  // Si le toast est déplacé assez haut (par exemple, plus de -100px), le fermer
+  if (dy < -20) {
+    hideToast();
+  } else {
+    // Sinon, remettre le toast à sa position initiale
+    toast.style.transform = 'translateX(-50%) translateY(0)';
+  }
+});
+
+
+
 
 
 
 /* ---------- fetch / chargement ---------- */
 
 async function fetchAndLoad(url) {
-	ui.loading.classList.remove('hidden');
 	ui.errorBanner.classList.add('hidden');
+	showToast('Chargement en cours...', 'info', 0);
 	try {
+
 		const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
 		const res = await fetch(proxyUrl, { cache: 'no-store' });
 		if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -336,7 +360,8 @@ async function fetchAndLoad(url) {
 
 		renderFilters();
 		render();
-
+		
+		hideToast();
 		return events.length;
 	} catch (e) {
 		console.error('Erreur ICS:', e);
@@ -354,8 +379,6 @@ async function fetchAndLoad(url) {
 		renderFilters();
 		render();
 		throw e;
-	} finally {
-		ui.loading.classList.add('hidden');
 	}
 }
 
@@ -655,10 +678,9 @@ if (mainEl) {
 ui.mobileDateHeader.textContent = formatHeaderDate(appState.selectedDate);
 const savedUrl = localStorage.getItem(STORAGE_KEYS.icsUrl) || '';
 if (savedUrl) {
-	ui.missingUrl.classList.add('hidden');
 	fetchAndLoad(savedUrl);
 } else {
-	ui.missingUrl.classList.remove('hidden');
+	showToast(`Configurez l'URL ICS via ⚙️ pour charger les événements.`, 'error', 3000)
 	ui.fileImport.addEventListener('change', async (e) => {
 		const file = e.target.files && e.target.files[0];
 		if (!file) return;
@@ -675,7 +697,6 @@ if (savedUrl) {
 		}
 		renderFilters();
 		render();
-		ui.missingUrl.classList.add('hidden');
 	});
 }
 render();
@@ -760,10 +781,7 @@ function renderEventsForDate(date, events) {
   
 	const filtered = filterEventsForDate(events, date, appState.selectedCourses);
 	if (filtered.length === 0) {
-	  ui.noEvents.classList.remove('hidden');
 	  return;
-	} else {
-	  ui.noEvents.classList.add('hidden');
 	}
   
 	const firstMin = getMinutes(hourSlots[0]);
@@ -796,7 +814,7 @@ function renderEventsForDate(date, events) {
 		if (ev.location) {
 			const roomDiv = document.createElement('div');
 			roomDiv.className = 'room';
-			roomDiv.style.fontSize = '18px';
+			roomDiv.style.fontSize = '14px';
 			roomDiv.style.fontWeight = 'normal';
 			roomDiv.textContent = ev.location;
       roomDiv.style.fontWeight = 500;

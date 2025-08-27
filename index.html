@@ -22,7 +22,7 @@
 </head>
 <body>
     <header class="topbar">
-		<h1>INSAgenda-web</h1>
+		<h1><img src="icons/icon-512.webp" alt="Icon" class="icon" /> INSAgenda-web</h1>
 		<div class="actions">
 			<button id="toggleDrawer" title="Filtres">☰</button>
 			<button id="prevDay" title="Jour précédent">⟨</button>
@@ -49,8 +49,6 @@
 		</div>		
         
         <div id="loading" class="loading hidden">Chargement…</div>
-        <div id="noEvents" class="no-events hidden">Aucun événement ce jour</div>
-        <div id="missingUrl" class="no-events hidden">Configurez l'URL ICS via ⚙️ pour charger les événements.</div>
         <div id="errorBanner" class="no-events hidden" style="color:#ff8a8a"></div>
         <div id="lastUpdated" class="no-events hidden"></div>
         <ul id="events" class="events"></ul>
@@ -85,6 +83,11 @@
     <div id="settingsModal" class="modal hidden">
         <div class="modal-content">
             <h3>Configurer l'URL ICS</h3>
+            <p>
+                Entrez l'URL de votre flux ICS pour synchroniser l'emploi du temps de votre département. <br><br> Vous pouvez utiliser l'URL ci-dessous pour accéder à l'emploi du temps de votre département.
+                <br><br>
+                <a href="https://cocktail.insa-rouen.fr/ics/liste_flux_ics.php" target="_blank">Cliquez ici pour consulter la liste des flux ICS</a>
+            </p>
             <input id="icsUrlInput" type="url" placeholder="https://cocktail.insa-rouen.fr/ics/edt-ade/..." style="width: 100%; padding: 10px; margin: 10px 0; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text);" />
             <div class="modal-actions">
                 <button id="saveUrl">Enregistrer</button>
