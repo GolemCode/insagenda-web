@@ -814,7 +814,7 @@ function renderEventsForDate(date, events) {
 		if (ev.location) {
 			const roomDiv = document.createElement('div');
 			roomDiv.className = 'room';
-			roomDiv.style.fontSize = '14px';
+			roomDiv.style.fontSize = '15px';
 			roomDiv.style.fontWeight = 'normal';
 			roomDiv.textContent = ev.location;
       roomDiv.style.fontWeight = 500;

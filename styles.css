@@ -455,7 +455,7 @@ body.drawer-open #overlay {
 .schedule-container {
 	position: relative;
 	display: flex;
-	height: 100%;
+	height: 80%;
 }
 	
 .hours-column {
