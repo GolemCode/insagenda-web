@@ -21,8 +21,8 @@
 	<meta name="msapplication-tap-highlight" content="no">
 </head>
 <body>
-	<header class="topbar">
-		<h1 id="dateHeader" role="button" title="Choisir une date">—</h1>
+    <header class="topbar">
+		<h1>INSAgenda-web</h1>
 		<div class="actions">
 			<button id="toggleDrawer" title="Filtres">☰</button>
 			<button id="prevDay" title="Jour précédent">⟨</button>
@@ -32,64 +32,89 @@
 			<input id="fileImport" type="file" accept=".ics,text/calendar" style="display:none" />
 		</div>
 	</header>
-	<aside class="drawer" id="drawer">
-		<h2>Filtres</h2>
-		<div class="filter-tools">
-			<button id="selectAll">Tout</button>
-			<button id="selectNone">Aucun</button>
-		</div>
-		<div id="courseFilters"></div>
-	</aside>
-	<div id="overlay" class="hidden"></div>
-	<main>
-		<div id="loading" class="loading hidden">Chargement…</div>
-		<div id="noEvents" class="no-events hidden">Aucun événement</div>
-		<div id="missingUrl" class="no-events hidden">Configurez l’URL ICS via ⚙️ pour charger les événements.</div>
-		<div id="errorBanner" class="no-events hidden" style="color:#ff8a8a"></div>
-		<div id="lastUpdated" class="no-events hidden"></div>
-		<ul id="events" class="events"></ul>
-	</main>
+    <aside class="drawer" id="drawer">
+        <h2>Filtres</h2>
+        <div class="filter-tools">
+            <button id="selectAll">Tout</button>
+            <button id="selectNone">Aucun</button>
+        </div>
+        <div id="courseFilters"></div>
+    </aside>
+    <div id="overlay" class="hidden"></div>
+    
+    <div class="swipe-indicator left">⟨</div>
+    <div class="swipe-indicator right">⟩</div>
+    
+    <main>
+        <div class="date-selector">
+			<button id="mobilePrevDay">⟨</button>
+			<div class="date-display" id="mobileDateHeader" role="button" title="Choisir une date">—</div>
+			<button id="mobileNextDay">⟩</button>
+		</div>				
+        
+        <div id="loading" class="loading hidden">Chargement…</div>
+        <div id="noEvents" class="no-events hidden">Aucun événement ce jour</div>
+        <div id="missingUrl" class="no-events hidden">Configurez l'URL ICS via ⚙️ pour charger les événements.</div>
+        <div id="errorBanner" class="no-events hidden" style="color:#ff8a8a"></div>
+        <div id="lastUpdated" class="no-events hidden"></div>
+        <ul id="events" class="events"></ul>
+    </main>
+    
+    <div class="mobile-toolbar">
+        <button id="mobileToggleDrawer" title="Filtres">
+            <span>☰</span>
+            <span>Filtres</span>
+        </button>
+        <button id="mobileRefresh" title="Rafraîchir">
+            <span>⟲</span>
+            <span>Actualiser</span>
+        </button>
+        <button id="mobileOpenSettings" title="Paramètres">
+            <span>⚙️</span>
+            <span>Paramètres</span>
+        </button>
+    </div>
 
-	<div id="settingsModal" class="modal hidden">
-		<div class="modal-content">
-			<h3>Configurer l'URL ICS</h3>
-			<input id="icsUrlInput" type="url" placeholder="https://cocktail.insa-rouen.fr/ics/edt-ade/..." />
-			<div class="modal-actions">
-				<button id="saveUrl">Enregistrer</button>
-				<button id="cancelSettings">Annuler</button>
-			</div>
-		</div>
-	</div>
+    <div id="settingsModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Configurer l'URL ICS</h3>
+            <input id="icsUrlInput" type="url" placeholder="https://cocktail.insa-rouen.fr/ics/edt-ade/..." style="width: 100%; padding: 10px; margin: 10px 0; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text);" />
+            <div class="modal-actions">
+                <button id="saveUrl">Enregistrer</button>
+                <button id="cancelSettings">Annuler</button>
+            </div>
+        </div>
+    </div>
 
-	<div id="eventModal" class="modal hidden">
-		<div class="modal-content">
-			<h3 id="eventModalTitle">—</h3>
-			<pre id="eventModalBody" class="desc" style="white-space:pre-wrap;margin:0"></pre>
-			<div class="modal-actions">
-				<button id="closeEventModal">Fermer</button>
-			</div>
-		</div>
-	</div>
+    <div id="eventModal" class="modal hidden">
+        <div class="modal-content">
+            <h3 id="eventModalTitle">—</h3>
+            <pre id="eventModalBody" class="desc" style="white-space:pre-wrap;margin:0"></pre>
+            <div class="modal-actions">
+                <button id="closeEventModal">Fermer</button>
+            </div>
+        </div>
+    </div>
 
-	<div id="calendarModal" class="modal hidden">
-		<div class="modal-content">
-			<div class="calendar-header">
-				<button id="prevMonth">⟨</button>
-				<h3 id="calendarMonthYear">—</h3>
-				<button id="nextMonth">⟩</button>
-			</div>
-			<div class="calendar-grid">
-				<div class="calendar-weekdays">
-					<div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div>
-				</div>
-				<div id="calendarDays" class="calendar-days"></div>
-			</div>
-			<div class="modal-actions">
-				<button id="closeCalendarModal">Fermer</button>
-			</div>
-		</div>
-	</div>
-
+    <div id="calendarModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="calendar-header">
+                <button id="prevMonth">⟨</button>
+                <h3 id="calendarMonthYear">—</h3>
+                <button id="nextMonth">⟩</button>
+            </div>
+            <div class="calendar-grid">
+                <div class="calendar-weekdays">
+                    <div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div>
+                </div>
+                <div id="calendarDays" class="calendar-days"></div>
+            </div>
+            <div class="modal-actions">
+                <button id="closeCalendarModal">Fermer</button>
+                <button id="goToToday">Aujourd'hui</button>
+            </div>
+        </div>
+    </div>
 	<script src="main.js" defer></script>
 </body>
 </html> 
