@@ -402,6 +402,11 @@ ui.mobileNextDay.addEventListener('click', goToNextDay);
 ui.openSettings.addEventListener('click', openSettings);
 ui.mobileOpenSettings.addEventListener('click', openSettings);
 ui.cancelSettings.addEventListener('click', closeSettings);
+ui.settingsModal.addEventListener('click', (e) => {
+	if (e.target === ui.settingsModal) {
+		closeSettings();
+	}
+});
 ui.saveUrl.addEventListener('click', saveUrl);
 ui.refresh.addEventListener('click', () => { const url = localStorage.getItem(STORAGE_KEYS.icsUrl) || ''; if (url) fetchAndLoad(url); else ui.fileImport.click(); });
 ui.mobileRefresh.addEventListener('click', () => { const url = localStorage.getItem(STORAGE_KEYS.icsUrl) || ''; if (url) fetchAndLoad(url); else ui.fileImport.click(); });
