@@ -380,7 +380,7 @@ body.drawer-open #overlay {
 		opacity: 0;
 		transition: opacity 0.5s ease, transform 0.2s ease;
 		z-index: 1000;
-		pointer-events: auto;
+		pointer-events: none;
 		touch-action: none;
 		font-weight: 500;
 	}
