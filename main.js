@@ -253,85 +253,17 @@ function persistFilters() {
 	localStorage.setItem(STORAGE_KEYS.selectedCourses, JSON.stringify([...appState.selectedCourses]));
 }
 
-function filterEventsForDate(events, date, selectedCourses) {
-	if (!events || !date || selectedCourses.size === 0) return [];
-	return events.filter(ev => {
-		const ids = getEffectiveEventIdentifiers(ev);
-		if (ids.length === 0) return false;
-		if (!ids.some(id => [...selectedCourses].some(sel => sel.localeCompare(id, undefined, { sensitivity: 'accent' }) === 0))) return false;
-		const startsBeforeOrOn = ev.start <= new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
-		const endsAfterOrOn = ev.end >= new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
-		return startsBeforeOrOn && endsAfterOrOn;
-	}).sort((a, b) => a.start - b.start);
-}
-
-function renderEvent(ev) {
-	const li = document.createElement('li');
-	li.className = 'event';
-	li.innerHTML = `
-		<div class="summary">${ev.summary}</div>
-		<div class="meta">
-			<span>${formatTimeRange(ev.start, ev.end)}</span>
-			${ev.location ? `<span>${ev.location}</span>` : ''}
-		</div>
-	`;
-	if (ev.description && ev.description.trim().length > 0) {
-		li.addEventListener('click', () => {
-			ui.eventModalTitle.textContent = ev.summary;
-			ui.eventModalBody.innerHTML = (ev.description || "").replace(/\n/g, "<br>");
-			ui.eventModal.classList.remove('hidden');
-		});
-	}
-	return li;
-}
-
-function renderEventInLayer(ev, container) {
-	const hourSlots = ["08:00","09:45","11:30","13:15","15:00","16:45","18:30"];
-	
-	function getMinutes(timeStr) {
-		const [h, m] = timeStr.split(':').map(Number);
-		return h*60 + m;
-	}
-
-	const startMin = ev.start.getHours()*60 + ev.start.getMinutes();
-	const endMin = ev.end.getHours()*60 + ev.end.getMinutes();
-	const firstMin = getMinutes(hourSlots[0]);
-	const lastMin = getMinutes(hourSlots[hourSlots.length-1]) + 60;
-
-	const topPerc = ((startMin - firstMin) / (lastMin - firstMin)) * 100;
-	const heightPerc = ((endMin - startMin) / (lastMin - firstMin)) * 100;
-
-	const div = document.createElement('div');
-	div.className = 'event';
-	div.style.top = `${topPerc}%`;
-	div.style.height = `${heightPerc}%`;
-	div.textContent = ev.summary;
-	container.appendChild(div);
+function filterEventsForDate(events, date) {
+    return events.filter(ev => {
+        return ev.start < new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59)
+            && ev.end > new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
+    }).sort((a,b) => a.start - b.start);
 }
 
 
 function render() {
-	const formattedDate = formatHeaderDate(appState.selectedDate);
-	ui.mobileDateHeader.textContent = formattedDate;
-
-	ui.loading.classList.add('hidden');
-	ui.missingUrl.classList.add('hidden');
-	ui.lastUpdated.classList.add('hidden');
-
-	const filtered = filterEventsForDate(appState.allEvents, appState.selectedDate, appState.selectedCourses);
-	const eventsLayer = document.getElementById('eventsLayer');
-
-	// vider la zone des events
-	eventsLayer.innerHTML = '';
-
-	if (filtered.length > 0) {
-		// afficher les events dans la layer
-		for (const ev of filtered) {
-			// adapter renderEvent pour qu'il ajoute à eventsLayer avec positionnement absolu
-			renderEventInLayer(ev, eventsLayer);
-		}
-	} 
-	// sinon la grille reste visible même sans events
+	ui.mobileDateHeader.textContent = formatHeaderDate(appState.selectedDate);
+	renderEventsForDate(appState.selectedDate, appState.allEvents);
 }
 
 const toast = document.getElementById('toast');
@@ -487,7 +419,7 @@ ui.saveUrl.addEventListener('click', async () => { // async ici
     closeSettings();
 
 	setSelectedDate(new Date());
-	
+
     if (url) {
         try {
             const eventsCount = await fetchAndLoad(url); // await
@@ -633,6 +565,63 @@ function renderCalendar() {
 	ui.calendarDays.innerHTML = html;
 }
 
+function groupOverlappingEvents(events) {
+	const groups = [];
+	const sorted = [...events].sort((a, b) => a.start - b.start);
+	
+	for (const ev of sorted) {
+	  let placed = false;
+	  for (const group of groups) {
+		const lastInGroup = group[group.length - 1];
+		// Vérifier le chevauchement
+		if (ev.start < lastInGroup.end) {
+		  group.push(ev);
+		  placed = true;
+		  break;
+		}
+	  }
+	  if (!placed) groups.push([ev]);
+	}
+	
+	return groups;
+  }
+  
+  function assignPositions(groups) {
+	for (const group of groups) {
+	  const n = group.length;
+	  group.forEach((ev, i) => {
+		ev._left = (i / n) * 100;
+		ev._width = (100 / n);
+	  });
+	}
+  }
+
+  
+  
+  function assignExactPositions(groups) {
+	for (const group of groups) {
+	  const n = group.length;
+	  group.forEach((ev, index) => {
+		ev._left = (index / n) * 100;     // en %
+		ev._width = (1 / n) * 100;        // en %
+	  });
+	}
+  }
+  
+  
+ 
+
+function getSlotTopPerc(slotIndex) {
+  return (slotIndex / hourSlots.length) * 100;
+}
+
+function getSlotHeightPerc(slotIndex) {
+  const startMin = getMinutes(hourSlots[slotIndex]);
+  const endMin = slotIndex + 1 < hourSlots.length ? getMinutes(hourSlots[slotIndex + 1]) : 24*60;
+  return ((endMin - startMin) / (24*60)) * 100;
+}
+
+  
 /* ---------- delegation : un seul listener ---------- */
 ui.calendarDays.onclick = (e) => {
 	if (e.target.classList.contains("calendar-day")) {
@@ -705,27 +694,129 @@ if ('serviceWorker' in navigator) {
 }
 
 const hourSlots = ["08:00","09:45","11:30","13:15","15:00","16:45","18:30"];
-const container = document.querySelector('.schedule-container');
-const eventsLayer = document.getElementById('events');
 
 function getMinutes(timeStr) {
   const [h,m] = timeStr.split(':').map(Number);
   return h*60 + m;
 }
 
-function renderEvent(ev) {
-  const startMin = ev.start.getHours()*60 + ev.start.getMinutes();
-  const endMin = ev.end.getHours()*60 + ev.end.getMinutes();
-  const firstMin = getMinutes(hourSlots[0]);
-  const lastMin = getMinutes(hourSlots[hourSlots.length-1]) + 60; // fin du dernier créneau
+function renderHourGrid() {
+	const container = document.querySelector('.hours-column');
+	if (!container) return;
+	container.innerHTML = '';
+  
+	const firstMin = getMinutes(hourSlots[0]);
+	const lastMin = getMinutes(hourSlots[hourSlots.length-1]) + 60; // fin du dernier slot
+  
+	hourSlots.forEach(slot => {
+	  const minutes = getMinutes(slot);
+	  const topPerc = ((minutes - firstMin) / (lastMin - firstMin)) * 100;
+  
+	  const div = document.createElement('div');
+	  div.className = 'hour-slot';
+	  div.textContent = slot;
+	  div.style.position = 'absolute';
+	  div.style.top = `${topPerc}%`;
+	  div.style.transform = 'translateY(-50%)'; // Centrer verticalement
+	  container.appendChild(div);
+	});
+  }
 
-  const topPerc = ((startMin - firstMin) / (lastMin - firstMin)) * 100;
-  const heightPerc = ((endMin - startMin) / (lastMin - firstMin)) * 100;
 
-  const div = document.createElement('div');
-  div.className = 'event';
-  div.style.top = `${topPerc}%`;
-  div.style.height = `${heightPerc}%`;
-  div.textContent = ev.summary;
-  eventsLayer.appendChild(div);
+function groupOverlappingEvents(events) {
+  const groups = {};
+  for (const ev of events) {
+    const key = `${ev.start.getHours()}:${ev.start.getMinutes()}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(ev);
+  }
+  return Object.values(groups);
 }
+
+function assignPositions(groups) {
+  for (const group of groups) {
+    const n = group.length;
+    group.forEach((ev, i) => {
+      ev._left = (i / n) * 100;
+      ev._width = (1 / n) * 100;
+    });
+  }
+}
+
+function showEventDetails(event) {
+	ui.eventModalTitle.textContent = event.summary;
+	ui.eventModalBody.innerHTML = `
+	  <p><strong>Heure:</strong> ${formatTimeRange(event.start, event.end)}</p>
+	  <p><strong>Lieu:</strong> ${event.location || 'Non spécifié'}</p>
+	  ${event.description ? `<p><strong>Description:</strong><br>${event.description.replace(/\n/g, '<br>')}</p>` : ''}
+	`;
+	ui.eventModal.classList.remove('hidden');
+  }
+
+function renderEventsForDate(date, events) {
+	const eventsLayer = document.getElementById('eventsLayer');
+	if (!eventsLayer) return;
+	eventsLayer.innerHTML = '';
+  
+	const filtered = filterEventsForDate(events, date, appState.selectedCourses);
+	if (filtered.length === 0) {
+	  ui.noEvents.classList.remove('hidden');
+	  return;
+	} else {
+	  ui.noEvents.classList.add('hidden');
+	}
+  
+	const firstMin = getMinutes(hourSlots[0]);
+	const lastMin = getMinutes(hourSlots[hourSlots.length - 1]) + 60;
+  
+	// Grouper les événements qui se chevauchent
+	const overlappingGroups = groupOverlappingEvents(filtered);
+	
+	// Assigner des positions à chaque groupe
+	assignPositions(overlappingGroups);
+  
+	// Rendre chaque événement
+	filtered.forEach(ev => {
+	  const startMin = ev.start.getHours() * 60 + ev.start.getMinutes();
+	  const endMin = ev.end.getHours() * 60 + ev.end.getMinutes();
+  
+	  const topPerc = ((startMin - firstMin) / (lastMin - firstMin)) * 100;
+	  const heightPerc = ((endMin - startMin) / (lastMin - firstMin)) * 100;
+  
+	  const div = document.createElement('div');
+	  div.className = 'event';
+	  div.style.position = 'absolute';
+	  div.style.top = `${topPerc}%`;
+	  div.style.height = `${heightPerc}%`;
+	  div.style.left = `${ev._left || 0}%`;
+	  div.style.width = `${ev._width || 100}%`;
+	  div.textContent = ev.summary;
+
+		// Ajouter le lieu si disponible
+		if (ev.location) {
+			const roomDiv = document.createElement('div');
+			roomDiv.className = 'room';
+			roomDiv.style.fontSize = '18px';
+			roomDiv.style.fontWeight = 'normal';
+			roomDiv.textContent = ev.location;
+      roomDiv.style.fontWeight = 500;
+			div.appendChild(roomDiv);
+		}
+
+  
+	  // Ajouter un gestionnaire de clic
+	  div.addEventListener('click', () => {
+		showEventDetails(ev);
+	  });
+  
+	  eventsLayer.appendChild(div);
+	});
+  }
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderHourGrid();
+  renderEventsForDate(appState.selectedDate, appState.allEvents);
+});
+  
+
+  
