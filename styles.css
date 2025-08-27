@@ -491,3 +491,14 @@ body.drawer-open #overlay {
 	font-size: 14px; /* facultatif, pour harmoniser */
 	line-height: 1.4; /* meilleure lisibilité */
 }
+
+#eventsLayer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.day-layer {
+  will-change: transform;
+}
