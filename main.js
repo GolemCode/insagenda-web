@@ -249,13 +249,19 @@ function persistFilters() {
 	localStorage.setItem(STORAGE_KEYS.selectedCourses, JSON.stringify([...appState.selectedCourses]));
 }
 
-function filterEventsForDate(events, date) {
+function filterEventsForDate(events, date, selectedCourses) {
     return events.filter(ev => {
-        return ev.start < new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59)
-            && ev.end > new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
-    }).sort((a,b) => a.start - b.start);
-}
+        const inDate =
+            ev.start < new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59) &&
+            ev.end > new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
 
+        if (!inDate) return false;
+
+        // Vérifie si l'événement correspond à un cours sélectionné
+        const ids = getEffectiveEventIdentifiers(ev);
+        return ids.some(id => selectedCourses.has(id));
+    }).sort((a, b) => a.start - b.start);
+}
 
 function render() {
 	ui.mobileDateHeader.textContent = formatHeaderDate(appState.selectedDate);
@@ -831,5 +837,51 @@ document.addEventListener('DOMContentLoaded', () => {
   renderEventsForDate(appState.selectedDate, appState.allEvents);
 });
   
+ui.mobileDateHeader.textContent = formatHeaderDate(appState.selectedDate);
+savedUrl = localStorage.getItem(STORAGE_KEYS.icsUrl) || '';
+
+if (savedUrl) {
+    fetchAndLoad(savedUrl);
+} else {
+    // 📌 Fallback offline : recharger depuis le cache s'il existe
+    const cachedEvents = localStorage.getItem(STORAGE_KEYS.eventsJson);
+    if (cachedEvents) {
+        const parsed = JSON.parse(cachedEvents).map(e => ({
+            ...e,
+            start: new Date(e.start),
+            end: new Date(e.end)
+        }));
+        appState.allEvents = parsed;
+        appState.uniqueCourseNames = computeUniqueCourseNames(parsed);
+        appState.lastUpdated = localStorage.getItem(STORAGE_KEYS.lastUpdated);
+
+        if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
+            appState.selectedCourses = new Set(appState.uniqueCourseNames);
+            persistFilters();
+        }
+
+        renderFilters();
+        render();
+    } else {
+        showToast(`Configurez l'URL ICS via ⚙️ pour charger les événements.`, 'error', 3000);
+        ui.fileImport.addEventListener('change', async (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const text = await file.text();
+            const events = parseICS(text);
+            appState.allEvents = events;
+            appState.uniqueCourseNames = computeUniqueCourseNames(events);
+            appState.lastUpdated = Date.now().toString();
+            localStorage.setItem(STORAGE_KEYS.eventsJson, JSON.stringify(events.map(e => ({...e, start: e.start.toISOString(), end: e.end.toISOString()}))));
+            localStorage.setItem(STORAGE_KEYS.lastUpdated, appState.lastUpdated);
+            if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
+                appState.selectedCourses = new Set(appState.uniqueCourseNames);
+                persistFilters();
+            }
+            renderFilters();
+            render();
+        });
+    }
+}
 
   
