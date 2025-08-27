@@ -46,8 +46,8 @@ body {
 }
 
 .topbar .icon {
-  width: 48px; /* Largeur de l'icône */
-  height: 48px; /* Hauteur de l'icône */
+  width: 32px; /* Largeur de l'icône */
+  height: 32px; /* Hauteur de l'icône */
 }
 .topbar .actions { display: flex; gap: 8px; }
 button { 
