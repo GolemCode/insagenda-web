@@ -41,7 +41,6 @@ const ui = {
 	prevMonth: document.getElementById('prevMonth'),
 	nextMonth: document.getElementById('nextMonth'),
 	closeCalendarModal: document.getElementById('closeCalendarModal'),
-	goToToday: document.getElementById('goToToday'),
 	overlay: document.getElementById('overlay'),
 };
 
@@ -504,10 +503,6 @@ ui.calendarModal.addEventListener('click', (e) => { if (e.target === ui.calendar
 
 ui.prevMonth.addEventListener('click', () => changeCalendarMonth(-1));
 ui.nextMonth.addEventListener('click', () => changeCalendarMonth(1));
-ui.goToToday.addEventListener('click', () => {
-	setSelectedDate(new Date());
-	ui.calendarModal.classList.add('hidden');
-});
 
 ui.selectAll.addEventListener('click', () => { appState.selectedCourses = new Set(appState.uniqueCourseNames); persistFilters(); renderFilters(); render(); });
 ui.selectNone.addEventListener('click', () => { appState.selectedCourses = new Set(); persistFilters(); renderFilters(); render(); });

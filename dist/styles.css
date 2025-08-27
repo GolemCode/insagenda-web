@@ -256,7 +256,7 @@ main {
 	body { 
 		grid-template-columns: 1fr; 
 		grid-template-areas: "topbar" "main"; 
-		padding-bottom: 70px; /* Espace pour la toolbar mobile */
+		padding-bottom: 20px;
 	}
 	.drawer { display: none; }
 	body.drawer-open .drawer { 
@@ -455,7 +455,7 @@ body.drawer-open #overlay {
 .schedule-container {
 	position: relative;
 	display: flex;
-	height: 80%;
+	height: 85%; /*NE PAS TOUCHER (sinon faut scroll)*/
 }
 	
 .hours-column {
