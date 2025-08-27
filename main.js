@@ -674,47 +674,6 @@ if (mainEl) {
 	}, { passive: true });
 }
 
-/* ---------- bootstrap / start ---------- */
-
-ui.mobileDateHeader.textContent = formatHeaderDate(appState.selectedDate);
-const savedUrl = localStorage.getItem(STORAGE_KEYS.icsUrl) || '';
-if (savedUrl) {
-	fetchAndLoad(savedUrl);
-} else {
-	showToast(`Configurez l'URL ICS via ⚙️ pour charger les événements.`, 'error', 3000)
-	ui.fileImport.addEventListener('change', async (e) => {
-		const file = e.target.files && e.target.files[0];
-		if (!file) return;
-		const text = await file.text();
-		const events = parseICS(text);
-		appState.allEvents = events;
-		appState.uniqueCourseNames = computeUniqueCourseNames(events);
-		appState.lastUpdated = Date.now().toString();
-		localStorage.setItem(STORAGE_KEYS.eventsJson, JSON.stringify(events.map(e => ({...e, start: e.start.toISOString(), end: e.end.toISOString()}))));
-		localStorage.setItem(STORAGE_KEYS.lastUpdated, appState.lastUpdated);
-		if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
-			appState.selectedCourses = new Set(appState.uniqueCourseNames);
-			persistFilters();
-		}
-		renderFilters();
-		render();
-	});
-}
-render();
-
-// PWA: register service worker
-if ('serviceWorker' in navigator) {
-	window.addEventListener('load', () => {
-		navigator.serviceWorker.register('/insagenda-web/sw.js')
-			.then((registration) => {
-				console.log('Service Worker enregistré avec succès:', registration);
-			})
-			.catch((error) => {
-				console.log('Erreur lors de l\'enregistrement du Service Worker:', error);
-			});
-	});
-}
-
 const hourSlots = ["08:00","09:45","11:30","13:15","15:00","16:45","18:30"];
 
 function getMinutes(timeStr) {
@@ -832,13 +791,10 @@ function renderEventsForDate(date, events) {
 	});
   }
 
-document.addEventListener('DOMContentLoaded', () => {
-  renderHourGrid();
-  renderEventsForDate(appState.selectedDate, appState.allEvents);
-});
-  
+/* ---------- bootstrap / start ---------- */
+
 ui.mobileDateHeader.textContent = formatHeaderDate(appState.selectedDate);
-savedUrl = localStorage.getItem(STORAGE_KEYS.icsUrl) || '';
+const savedUrl = localStorage.getItem(STORAGE_KEYS.icsUrl) || '';
 
 if (savedUrl) {
     fetchAndLoad(savedUrl);
@@ -884,4 +840,23 @@ if (savedUrl) {
     }
 }
 
-  
+render();
+
+// PWA: register service worker
+if ('serviceWorker' in navigator) {
+	window.addEventListener('load', () => {
+		navigator.serviceWorker.register('/insagenda-web/sw.js')
+			.then((registration) => {
+				console.log('Service Worker enregistré avec succès:', registration);
+			})
+			.catch((error) => {
+				console.log('Erreur lors de l\'enregistrement du Service Worker:', error);
+			});
+	});
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderHourGrid();
+  renderEventsForDate(appState.selectedDate, appState.allEvents);
+});
+
