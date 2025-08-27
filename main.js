@@ -285,19 +285,91 @@ function renderEvent(ev) {
 	return li;
 }
 
+function renderEventInLayer(ev, container) {
+	const hourSlots = ["08:00","09:45","11:30","13:15","15:00","16:45","18:30"];
+	
+	function getMinutes(timeStr) {
+		const [h, m] = timeStr.split(':').map(Number);
+		return h*60 + m;
+	}
+
+	const startMin = ev.start.getHours()*60 + ev.start.getMinutes();
+	const endMin = ev.end.getHours()*60 + ev.end.getMinutes();
+	const firstMin = getMinutes(hourSlots[0]);
+	const lastMin = getMinutes(hourSlots[hourSlots.length-1]) + 60;
+
+	const topPerc = ((startMin - firstMin) / (lastMin - firstMin)) * 100;
+	const heightPerc = ((endMin - startMin) / (lastMin - firstMin)) * 100;
+
+	const div = document.createElement('div');
+	div.className = 'event';
+	div.style.top = `${topPerc}%`;
+	div.style.height = `${heightPerc}%`;
+	div.textContent = ev.summary;
+	container.appendChild(div);
+}
+
+
 function render() {
 	const formattedDate = formatHeaderDate(appState.selectedDate);
 	ui.mobileDateHeader.textContent = formattedDate;
-	
+
 	ui.loading.classList.add('hidden');
-	const filtered = filterEventsForDate(appState.allEvents, appState.selectedDate, appState.selectedCourses);
-	ui.noEvents.classList.toggle('hidden', filtered.length !== 0);
-	ui.events.classList.toggle('hidden', filtered.length === 0);
 	ui.missingUrl.classList.add('hidden');
-	ui.events.innerHTML = '';
-	for (const ev of filtered) ui.events.appendChild(renderEvent(ev));
 	ui.lastUpdated.classList.add('hidden');
+
+	const filtered = filterEventsForDate(appState.allEvents, appState.selectedDate, appState.selectedCourses);
+	const eventsLayer = document.getElementById('eventsLayer');
+
+	// vider la zone des events
+	eventsLayer.innerHTML = '';
+
+	if (filtered.length > 0) {
+		// afficher les events dans la layer
+		for (const ev of filtered) {
+			// adapter renderEvent pour qu'il ajoute à eventsLayer avec positionnement absolu
+			renderEventInLayer(ev, eventsLayer);
+		}
+	} 
+	// sinon la grille reste visible même sans events
 }
+
+const toast = document.getElementById('toast');
+let toastTimeout;
+
+function showToast(message, type = 'error', duration = 3000) {
+  if (!toast) return;
+
+  toast.textContent = message;
+  toast.className = `toast ${type} show`;
+
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => {
+    hideToast();
+  }, duration);
+}
+
+function hideToast() {
+  if (!toast) return;
+
+  toast.classList.remove('show');
+  toastTimeout = setTimeout(() => {
+    toast.className = 'toast hidden'; // remet à l'état initial
+  }, 500); // doit correspondre à la durée de transition
+}
+
+// swipe pour fermer
+toast.addEventListener('touchstart', e => {
+  startY = e.touches[0].clientY;
+});
+toast.addEventListener('touchmove', e => {
+  const dy = e.touches[0].clientY - startY;
+  if (dy < -20) { // swipe vers le haut
+    hideToast();
+  }
+});
+
+
 
 /* ---------- fetch / chargement ---------- */
 
@@ -327,15 +399,16 @@ async function fetchAndLoad(url) {
 			persistFilters();
 		}
 
-		// 🔥 Construire le cache une seule fois
+		// Construire le cache une seule fois
 		appState.calendarCache = buildEventsByDate(events, appState.selectedCourses);
 
 		renderFilters();
 		render();
+
+		return events.length;
 	} catch (e) {
 		console.error('Erreur ICS:', e);
-		ui.errorBanner.textContent = `Erreur ICS: ${e.message || e}`;
-		ui.errorBanner.classList.remove('hidden');
+		showToast(`Erreur ICS: ${e.message || e}`, 'error', 3000);
 
 		appState.allEvents = [];
 		appState.uniqueCourseNames = [];
@@ -348,6 +421,7 @@ async function fetchAndLoad(url) {
 
 		renderFilters();
 		render();
+		throw e;
 	} finally {
 		ui.loading.classList.add('hidden');
 	}
@@ -407,9 +481,27 @@ ui.settingsModal.addEventListener('click', (e) => {
 		closeSettings();
 	}
 });
-ui.saveUrl.addEventListener('click', saveUrl);
-ui.refresh.addEventListener('click', () => { const url = localStorage.getItem(STORAGE_KEYS.icsUrl) || ''; if (url) fetchAndLoad(url); else ui.fileImport.click(); });
-ui.mobileRefresh.addEventListener('click', () => { const url = localStorage.getItem(STORAGE_KEYS.icsUrl) || ''; if (url) fetchAndLoad(url); else ui.fileImport.click(); });
+ui.saveUrl.addEventListener('click', async () => { // async ici
+    const url = ui.icsUrlInput.value.trim();
+    localStorage.setItem(STORAGE_KEYS.icsUrl, url);
+    closeSettings();
+
+	setSelectedDate(new Date());
+	
+    if (url) {
+        try {
+            const eventsCount = await fetchAndLoad(url); // await
+            showToast(`Import réussi : ${eventsCount} événements`, 'success', 3000);
+        } catch (e) {
+            showToast(`Erreur ICS: ${e.message || e}`, 'error', 3000);
+        }
+    } else {
+        ui.fileImport.click();
+    }
+});
+
+ui.refresh.addEventListener('click', () => { const url = localStorage.getItem(STORAGE_KEYS.icsUrl) || ''; setSelectedDate(new Date()); if (url) fetchAndLoad(url); else ui.fileImport.click(); });
+ui.mobileRefresh.addEventListener('click', () => { const url = localStorage.getItem(STORAGE_KEYS.icsUrl) || ''; setSelectedDate(new Date()); if (url) fetchAndLoad(url); else ui.fileImport.click(); });
 
 // toggle drawer using click for better mobile responsiveness
 ui.toggleDrawer.addEventListener('click', (e) => {
@@ -610,4 +702,30 @@ if ('serviceWorker' in navigator) {
 				console.log('Erreur lors de l\'enregistrement du Service Worker:', error);
 			});
 	});
+}
+
+const hourSlots = ["08:00","09:45","11:30","13:15","15:00","16:45","18:30"];
+const container = document.querySelector('.schedule-container');
+const eventsLayer = document.getElementById('events');
+
+function getMinutes(timeStr) {
+  const [h,m] = timeStr.split(':').map(Number);
+  return h*60 + m;
+}
+
+function renderEvent(ev) {
+  const startMin = ev.start.getHours()*60 + ev.start.getMinutes();
+  const endMin = ev.end.getHours()*60 + ev.end.getMinutes();
+  const firstMin = getMinutes(hourSlots[0]);
+  const lastMin = getMinutes(hourSlots[hourSlots.length-1]) + 60; // fin du dernier créneau
+
+  const topPerc = ((startMin - firstMin) / (lastMin - firstMin)) * 100;
+  const heightPerc = ((endMin - startMin) / (lastMin - firstMin)) * 100;
+
+  const div = document.createElement('div');
+  div.className = 'event';
+  div.style.top = `${topPerc}%`;
+  div.style.height = `${heightPerc}%`;
+  div.textContent = ev.summary;
+  eventsLayer.appendChild(div);
 }
