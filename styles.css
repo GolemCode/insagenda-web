@@ -416,6 +416,10 @@ body.drawer-open #overlay {
 	color: #2e7d32;
 }
 
+.toast.info {
+    background: rgba(200, 230, 255, 0.9);
+    color: #0d47a1;
+}
 
 #eventsLayer {
 	position: relative;

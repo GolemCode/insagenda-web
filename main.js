@@ -326,65 +326,90 @@ toast.addEventListener('touchend', e => {
   }
 });
 
-
-
-
-
-
 /* ---------- fetch / chargement ---------- */
 
 async function fetchAndLoad(url) {
-	ui.errorBanner.classList.add('hidden');
-	showToast('Chargement en cours...', 'info', 0);
-	try {
+    ui.errorBanner.classList.add('hidden');
+    showToast('Chargement en cours...', 'info', 0);
 
-		const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-		const res = await fetch(proxyUrl, { cache: 'no-store' });
-		if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
 
-		let text = await res.text();
-		if (!text) throw new Error('Réponse vide');
+    try {
+        const res = await fetch(proxyUrl, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
 
-		const events = parseICS(text);
-		appState.allEvents = events;
-		appState.uniqueCourseNames = computeUniqueCourseNames(events);
-		appState.lastUpdated = Date.now().toString();
+        const text = await res.text();
+        if (!text) throw new Error('Réponse vide');
 
-		localStorage.setItem(STORAGE_KEYS.eventsJson, JSON.stringify(events.map(e => ({
-			...e, start: e.start.toISOString(), end: e.end.toISOString()
-		}))));
-		localStorage.setItem(STORAGE_KEYS.lastUpdated, appState.lastUpdated);
+        const events = parseICS(text);
+        appState.allEvents = events;
+        appState.uniqueCourseNames = computeUniqueCourseNames(events);
+        appState.lastUpdated = Date.now().toString();
 
-		if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
-			appState.selectedCourses = new Set(appState.uniqueCourseNames);
-			persistFilters();
-		}
+        localStorage.setItem(STORAGE_KEYS.eventsJson, JSON.stringify(events.map(e => ({
+            ...e,
+            start: e.start.toISOString(),
+            end: e.end.toISOString()
+        }))));
+        localStorage.setItem(STORAGE_KEYS.lastUpdated, appState.lastUpdated);
 
-		// Construire le cache une seule fois
-		appState.calendarCache = buildEventsByDate(events, appState.selectedCourses);
+        if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
+            appState.selectedCourses = new Set(appState.uniqueCourseNames);
+            persistFilters();
+        }
 
-		renderFilters();
-		render();
-		
-		hideToast();
-		return events.length;
-	} catch (e) {
-		console.error('Erreur ICS:', e);
-		showToast(`Erreur ICS: ${e.message || e}`, 'error', 3000);
+        // Construire le cache
+        appState.calendarCache = buildEventsByDate(events, appState.selectedCourses);
 
-		appState.allEvents = [];
-		appState.uniqueCourseNames = [];
-		appState.selectedCourses = new Set();
-		appState.calendarCache = new Map();
+        renderFilters();
+        render();
+        hideToast();
+        return events.length;
 
-		localStorage.removeItem(STORAGE_KEYS.eventsJson);
-		localStorage.removeItem(STORAGE_KEYS.lastUpdated);
-		persistFilters();
+    } catch (e) {
+        console.error('Erreur ICS:', e);
 
-		renderFilters();
-		render();
-		throw e;
-	}
+        // Fallback : utiliser le cache local
+        const cachedEvents = localStorage.getItem(STORAGE_KEYS.eventsJson);
+        if (cachedEvents) {
+            const events = JSON.parse(cachedEvents).map(e => ({
+                ...e,
+                start: new Date(e.start),
+                end: new Date(e.end)
+            }));
+            appState.allEvents = events;
+            appState.uniqueCourseNames = computeUniqueCourseNames(events);
+            appState.lastUpdated = localStorage.getItem(STORAGE_KEYS.lastUpdated);
+
+            if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
+                appState.selectedCourses = new Set(appState.uniqueCourseNames);
+                persistFilters();
+            }
+
+            appState.calendarCache = buildEventsByDate(events, appState.selectedCourses);
+
+            renderFilters();
+            render();
+
+            showToast('Impossible de charger depuis le proxy, affichage depuis le cache local.', 'info', 3000);
+            return events.length;
+        } else {
+            appState.allEvents = [];
+            appState.uniqueCourseNames = [];
+            appState.selectedCourses = new Set();
+            appState.calendarCache = new Map();
+
+            localStorage.removeItem(STORAGE_KEYS.eventsJson);
+            localStorage.removeItem(STORAGE_KEYS.lastUpdated);
+            persistFilters();
+
+            renderFilters();
+            render();
+
+            showToast(`Erreur ICS: ${e.message || e}`, 'error', 3000);
+            throw e;
+        }
+    }
 }
 
 /* ---------- navigation date ---------- */
