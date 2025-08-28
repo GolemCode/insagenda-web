@@ -249,13 +249,19 @@ function persistFilters() {
 	localStorage.setItem(STORAGE_KEYS.selectedCourses, JSON.stringify([...appState.selectedCourses]));
 }
 
-function filterEventsForDate(events, date) {
+function filterEventsForDate(events, date, selectedCourses) {
     return events.filter(ev => {
-        return ev.start < new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59)
-            && ev.end > new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
-    }).sort((a,b) => a.start - b.start);
-}
+        const inDate =
+            ev.start < new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59) &&
+            ev.end > new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
 
+        if (!inDate) return false;
+
+        // Vérifie si l'événement correspond à un cours sélectionné
+        const ids = getEffectiveEventIdentifiers(ev);
+        return ids.some(id => selectedCourses.has(id));
+    }).sort((a, b) => a.start - b.start);
+}
 
 function render() {
 	ui.mobileDateHeader.textContent = formatHeaderDate(appState.selectedDate);
@@ -320,90 +326,130 @@ toast.addEventListener('touchend', e => {
   }
 });
 
-
-
-
-
-
 /* ---------- fetch / chargement ---------- */
 
 async function fetchAndLoad(url) {
-	ui.errorBanner.classList.add('hidden');
-	showToast('Chargement en cours...', 'info', 0);
-	try {
+    ui.errorBanner.classList.add('hidden');
+    showToast('Chargement en cours...', 'info', 0);
 
-		const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-		const res = await fetch(proxyUrl, { cache: 'no-store' });
-		if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
 
-		let text = await res.text();
-		if (!text) throw new Error('Réponse vide');
+    try {
+        const res = await fetch(proxyUrl, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
 
-		const events = parseICS(text);
-		appState.allEvents = events;
-		appState.uniqueCourseNames = computeUniqueCourseNames(events);
-		appState.lastUpdated = Date.now().toString();
+        const text = await res.text();
+        if (!text) throw new Error('Réponse vide');
 
-		localStorage.setItem(STORAGE_KEYS.eventsJson, JSON.stringify(events.map(e => ({
-			...e, start: e.start.toISOString(), end: e.end.toISOString()
-		}))));
-		localStorage.setItem(STORAGE_KEYS.lastUpdated, appState.lastUpdated);
+        const events = parseICS(text);
+        appState.allEvents = events;
+        appState.uniqueCourseNames = computeUniqueCourseNames(events);
+        appState.lastUpdated = Date.now().toString();
 
-		if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
-			appState.selectedCourses = new Set(appState.uniqueCourseNames);
-			persistFilters();
-		}
+        localStorage.setItem(STORAGE_KEYS.eventsJson, JSON.stringify(events.map(e => ({
+            ...e,
+            start: e.start.toISOString(),
+            end: e.end.toISOString()
+        }))));
+        localStorage.setItem(STORAGE_KEYS.lastUpdated, appState.lastUpdated);
 
-		// Construire le cache une seule fois
-		appState.calendarCache = buildEventsByDate(events, appState.selectedCourses);
+        if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
+            appState.selectedCourses = new Set(appState.uniqueCourseNames);
+            persistFilters();
+        }
 
-		renderFilters();
-		render();
-		
-		hideToast();
-		return events.length;
-	} catch (e) {
-		console.error('Erreur ICS:', e);
-		showToast(`Erreur ICS: ${e.message || e}`, 'error', 3000);
+        // Construire le cache
+        appState.calendarCache = buildEventsByDate(events, appState.selectedCourses);
 
-		appState.allEvents = [];
-		appState.uniqueCourseNames = [];
-		appState.selectedCourses = new Set();
-		appState.calendarCache = new Map();
+        renderFilters();
+        render();
+        hideToast();
+        return events.length;
 
-		localStorage.removeItem(STORAGE_KEYS.eventsJson);
-		localStorage.removeItem(STORAGE_KEYS.lastUpdated);
-		persistFilters();
+    } catch (e) {
+        console.error('Erreur ICS:', e);
 
-		renderFilters();
-		render();
-		throw e;
-	}
+        // Fallback : utiliser le cache local
+        const cachedEvents = localStorage.getItem(STORAGE_KEYS.eventsJson);
+        if (cachedEvents) {
+            const events = JSON.parse(cachedEvents).map(e => ({
+                ...e,
+                start: new Date(e.start),
+                end: new Date(e.end)
+            }));
+            appState.allEvents = events;
+            appState.uniqueCourseNames = computeUniqueCourseNames(events);
+            appState.lastUpdated = localStorage.getItem(STORAGE_KEYS.lastUpdated);
+
+            if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
+                appState.selectedCourses = new Set(appState.uniqueCourseNames);
+                persistFilters();
+            }
+
+            appState.calendarCache = buildEventsByDate(events, appState.selectedCourses);
+
+            renderFilters();
+            render();
+
+            showToast('Impossible de charger depuis le proxy, affichage depuis le cache local.', 'info', 3000);
+            return events.length;
+        } else {
+            appState.allEvents = [];
+            appState.uniqueCourseNames = [];
+            appState.selectedCourses = new Set();
+            appState.calendarCache = new Map();
+
+            localStorage.removeItem(STORAGE_KEYS.eventsJson);
+            localStorage.removeItem(STORAGE_KEYS.lastUpdated);
+            persistFilters();
+
+            renderFilters();
+            render();
+
+            showToast(`Erreur ICS: ${e.message || e}`, 'error', 3000);
+            throw e;
+        }
+    }
 }
 
 /* ---------- navigation date ---------- */
 
 function setSelectedDate(date) {
 	appState.selectedDate = date;
+	currentDate = new Date(date);
 	render();
 }
 
-function goToNextDay() {
-	let d = new Date(appState.selectedDate);
-	d.setDate(d.getDate() + 1);
-	while (isWeekend(d) && filterEventsForDate(appState.allEvents, d, appState.selectedCourses).length === 0) {
-		d.setDate(d.getDate() + 1);
-	}
-	setSelectedDate(d);
+function goToPreviousDay() {
+    let d = new Date(appState.selectedDate);
+    do {
+        d.setDate(d.getDate() - 1);
+    } while (
+        isWeekend(d) && 
+        filterEventsForDate(appState.allEvents, d, appState.selectedCourses).length === 0
+    );
+    setSelectedDate(d);
 }
 
-function goToPreviousDay() {
-	let d = new Date(appState.selectedDate);
-	d.setDate(d.getDate() - 1);
-	while (isWeekend(d) && filterEventsForDate(appState.allEvents, d, appState.selectedCourses).length === 0) {
-		d.setDate(d.getDate() - 1);
-	}
-	setSelectedDate(d);
+function goToNextDay() {
+    let d = new Date(appState.selectedDate);
+    do {
+        d.setDate(d.getDate() + 1);
+    } while (
+        isWeekend(d) && 
+        filterEventsForDate(appState.allEvents, d, appState.selectedCourses).length === 0
+    );
+    setSelectedDate(d);
+}
+
+/* ---------- Fonction pour obtenir la prochaine date valide ---------- */
+
+function getNextValidDate(current, direction) {
+  let d = new Date(current);
+  do {
+    d.setDate(d.getDate() + direction);
+  } while (isWeekend(d) && filterEventsForDate(appState.allEvents, d, appState.selectedCourses).length === 0);
+  return d;
 }
 
 /* ---------- calendar modal ---------- */
@@ -511,22 +557,27 @@ ui.mobileDateHeader.addEventListener('click', () => { showCalendarModal(); });
 /* ---------- calendar cache ---------- */
 
 function buildEventsByDate(events, selectedCourses) {
-	const map = new Map();
-	for (const ev of events) {
-		const ids = getEffectiveEventIdentifiers(ev);
-		if (ids.length === 0) continue;
-		if (!ids.some(id => selectedCourses.has(id))) continue;
+    const map = new Map();
+    for (const ev of events) {
+        const ids = getEffectiveEventIdentifiers(ev);
+        if (ids.length === 0) continue;
+        if (!ids.some(id => selectedCourses.has(id))) continue;
 
-		const start = new Date(ev.start.getFullYear(), ev.start.getMonth(), ev.start.getDate());
-		const end = new Date(ev.end.getFullYear(), ev.end.getMonth(), ev.end.getDate());
+        const start = new Date(ev.start.getFullYear(), ev.start.getMonth(), ev.start.getDate());
+        const end = new Date(ev.end.getFullYear(), ev.end.getMonth(), ev.end.getDate());
 
-		for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-			const key = d.toISOString().split("T")[0];
-			if (!map.has(key)) map.set(key, []);
-			map.get(key).push(ev);
-		}
-	}
-	return map;
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            // clé en heure locale
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, "0");
+            const day = String(d.getDate()).padStart(2, "0");
+            const key = `${year}-${month}-${day}`;
+
+            if (!map.has(key)) map.set(key, []);
+            map.get(key).push(ev);
+        }
+    }
+    return map;
 }
 
 /* ---------- calendar modal ---------- */
@@ -569,7 +620,12 @@ function renderCalendar() {
 
 	for (let i = 0; i < 42; i++) {
 		const date = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i);
-		const key = date.toISOString().split("T")[0];
+
+		// format YYYY-MM-DD en local
+		const year = date.getFullYear();
+		const monthStr = String(date.getMonth() + 1).padStart(2, "0");
+		const dayStr = String(date.getDate()).padStart(2, "0");
+		const key = `${year}-${monthStr}-${dayStr}`;
 
 		const classes = ["calendar-day"];
 		if (date.getMonth() !== month) classes.push("other-month");
@@ -602,32 +658,17 @@ function groupOverlappingEvents(events) {
 	}
 	
 	return groups;
-  }
-  
-  function assignPositions(groups) {
+}
+
+function assignPositions(groups) {
 	for (const group of groups) {
-	  const n = group.length;
-	  group.forEach((ev, i) => {
+		const n = group.length;
+		group.forEach((ev, i) => {
 		ev._left = (i / n) * 100;
 		ev._width = (100 / n);
-	  });
+		});
 	}
-  }
-
-  
-  
-  function assignExactPositions(groups) {
-	for (const group of groups) {
-	  const n = group.length;
-	  group.forEach((ev, index) => {
-		ev._left = (index / n) * 100;     // en %
-		ev._width = (1 / n) * 100;        // en %
-	  });
-	}
-  }
-  
-  
- 
+}
 
 function getSlotTopPerc(slotIndex) {
   return (slotIndex / hourSlots.length) * 100;
@@ -642,71 +683,41 @@ function getSlotHeightPerc(slotIndex) {
   
 /* ---------- delegation : un seul listener ---------- */
 ui.calendarDays.onclick = (e) => {
-	if (e.target.classList.contains("calendar-day")) {
-		const date = new Date(e.target.dataset.date);
-		setSelectedDate(date);
-		ui.calendarModal.classList.add("hidden");
-	}
-};
+    // Récupère le div correspondant même si on clique sur un enfant
+    const dayEl = e.target.closest(".calendar-day");
+    if (!dayEl) return;
 
+    // Crée la Date en utilisant les getters locaux
+    const [year, month, day] = dayEl.dataset.date.split('-').map(Number);
+    const date = new Date(year, month - 1, day); // mois 0-indexé
+
+    // Met à jour l'état et affiche la date sélectionnée
+    setSelectedDate(date);
+
+    // Ferme le modal du calendrier si nécessaire
+    ui.calendarModal.classList.add("hidden");
+};
 
 /* ---------- swipe globally on main ---------- */
 
 let startX = 0, startY = 0;
 const mainEl = document.querySelector('main');
 if (mainEl) {
-	mainEl.addEventListener('touchstart', e => {
-	  const t = e.touches[0]; startX = t.clientX; startY = t.clientY;
-	}, { passive: true });
+    mainEl.addEventListener('touchstart', e => {
+        const t = e.touches[0]; 
+        startX = t.clientX; 
+        startY = t.clientY;
+    }, { passive: true });
 
-	mainEl.addEventListener('touchend', e => {
-	  const t = e.changedTouches[0];
-	  const dx = t.clientX - startX; const dy = t.clientY - startY;
-	  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
-		if (dx > 0) goToPreviousDay(); else goToNextDay();
-	  }
-	}, { passive: true });
-}
-
-/* ---------- bootstrap / start ---------- */
-
-ui.mobileDateHeader.textContent = formatHeaderDate(appState.selectedDate);
-const savedUrl = localStorage.getItem(STORAGE_KEYS.icsUrl) || '';
-if (savedUrl) {
-	fetchAndLoad(savedUrl);
-} else {
-	showToast(`Configurez l'URL ICS via ⚙️ pour charger les événements.`, 'error', 3000)
-	ui.fileImport.addEventListener('change', async (e) => {
-		const file = e.target.files && e.target.files[0];
-		if (!file) return;
-		const text = await file.text();
-		const events = parseICS(text);
-		appState.allEvents = events;
-		appState.uniqueCourseNames = computeUniqueCourseNames(events);
-		appState.lastUpdated = Date.now().toString();
-		localStorage.setItem(STORAGE_KEYS.eventsJson, JSON.stringify(events.map(e => ({...e, start: e.start.toISOString(), end: e.end.toISOString()}))));
-		localStorage.setItem(STORAGE_KEYS.lastUpdated, appState.lastUpdated);
-		if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
-			appState.selectedCourses = new Set(appState.uniqueCourseNames);
-			persistFilters();
-		}
-		renderFilters();
-		render();
-	});
-}
-render();
-
-// PWA: register service worker
-if ('serviceWorker' in navigator) {
-	window.addEventListener('load', () => {
-		navigator.serviceWorker.register('/insagenda-web/sw.js')
-			.then((registration) => {
-				console.log('Service Worker enregistré avec succès:', registration);
-			})
-			.catch((error) => {
-				console.log('Erreur lors de l\'enregistrement du Service Worker:', error);
-			});
-	});
+    mainEl.addEventListener('touchend', e => {
+        const t = e.changedTouches[0];
+        const dx = t.clientX - startX; 
+        const dy = t.clientY - startY;
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+            if (dx > 0) goToPreviousDay(); 
+            else goToNextDay();
+        }
+    }, { passive: true });
 }
 
 const hourSlots = ["08:00","09:45","11:30","13:15","15:00","16:45","18:30"];
@@ -769,10 +780,9 @@ function showEventDetails(event) {
 	ui.eventModal.classList.remove('hidden');
   }
 
-function renderEventsForDate(date, events) {
-	const eventsLayer = document.getElementById('eventsLayer');
-	if (!eventsLayer) return;
-	eventsLayer.innerHTML = '';
+function renderEventsForDate(date, events, container = document.getElementById('eventsLayer')) {
+	if (!container) return;
+	while (container.firstChild) container.removeChild(container.firstChild); // Vide le container proprement
   
 	const filtered = filterEventsForDate(events, date, appState.selectedCourses);
 	if (filtered.length === 0) {
@@ -812,7 +822,7 @@ function renderEventsForDate(date, events) {
 			roomDiv.style.fontSize = '15px';
 			roomDiv.style.fontWeight = 'normal';
 			roomDiv.textContent = ev.location;
-      roomDiv.style.fontWeight = 500;
+      		roomDiv.style.fontWeight = 500;
 			div.appendChild(roomDiv);
 		}
 
@@ -822,14 +832,200 @@ function renderEventsForDate(date, events) {
 		showEventDetails(ev);
 	  });
   
-	  eventsLayer.appendChild(div);
+	  container.appendChild(div);
 	});
   }
+
+/* ---------- bootstrap / start ---------- */
+
+ui.mobileDateHeader.textContent = formatHeaderDate(appState.selectedDate);
+const savedUrl = localStorage.getItem(STORAGE_KEYS.icsUrl) || '';
+
+if (savedUrl) {
+    fetchAndLoad(savedUrl);
+} else {
+    // 📌 Fallback offline : recharger depuis le cache s'il existe
+    const cachedEvents = localStorage.getItem(STORAGE_KEYS.eventsJson);
+    if (cachedEvents) {
+        const parsed = JSON.parse(cachedEvents).map(e => ({
+            ...e,
+            start: new Date(e.start),
+            end: new Date(e.end)
+        }));
+        appState.allEvents = parsed;
+        appState.uniqueCourseNames = computeUniqueCourseNames(parsed);
+        appState.lastUpdated = localStorage.getItem(STORAGE_KEYS.lastUpdated);
+
+        if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
+            appState.selectedCourses = new Set(appState.uniqueCourseNames);
+            persistFilters();
+        }
+
+        renderFilters();
+        render();
+    } else {
+        showToast(`Configurez l'URL ICS via ⚙️ pour charger les événements.`, 'error', 3000);
+        ui.fileImport.addEventListener('change', async (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const text = await file.text();
+            const events = parseICS(text);
+            appState.allEvents = events;
+            appState.uniqueCourseNames = computeUniqueCourseNames(events);
+            appState.lastUpdated = Date.now().toString();
+            localStorage.setItem(STORAGE_KEYS.eventsJson, JSON.stringify(events.map(e => ({...e, start: e.start.toISOString(), end: e.end.toISOString()}))));
+            localStorage.setItem(STORAGE_KEYS.lastUpdated, appState.lastUpdated);
+            if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
+                appState.selectedCourses = new Set(appState.uniqueCourseNames);
+                persistFilters();
+            }
+            renderFilters();
+            render();
+        });
+    }
+}
+
+// PWA: register service worker
+if ('serviceWorker' in navigator) {
+	window.addEventListener('load', () => {
+		navigator.serviceWorker.register('/insagenda-web/sw.js')
+			.then((registration) => {
+				console.log('Service Worker enregistré avec succès:', registration);
+			})
+			.catch((error) => {
+				console.log('Erreur lors de l\'enregistrement du Service Worker:', error);
+			});
+	});
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   renderHourGrid();
   renderEventsForDate(appState.selectedDate, appState.allEvents);
 });
-  
 
-  
+// --- Swipe interactif avec peek (version corrigée) ---
+const layer = document.getElementById('eventsLayer');
+let currentDate = new Date(appState.selectedDate);
+let direction = 0;
+let startTime = 0;
+
+const swipeContainer = layer.parentElement;
+
+const hoursColumn = document.querySelector('.hours-column');
+
+hoursColumn.addEventListener('touchstart', e => {
+  e.stopPropagation();
+});
+// Touch start
+swipeContainer.addEventListener('touchstart', e => {
+  startX = e.touches[0].clientX;
+  startTime = Date.now();
+  isSwiping = true;
+  direction = 0;
+}, { passive: true });
+
+// Touch move
+swipeContainer.addEventListener('touchmove', e => {
+  if (!isSwiping) return;
+  const dx = e.touches[0].clientX - startX;
+  if (Math.abs(dx) < 10) return;
+
+  const currentDirection = dx < 0 ? 1 : -1;
+  const width = layer.offsetWidth;
+  const maxExposure = 0.7 * width;
+
+  let limitedDx = dx;
+  if (Math.abs(limitedDx) > maxExposure) {
+    limitedDx = maxExposure * Math.sign(limitedDx);
+  }
+
+  // Reset si changement de direction
+  let currentLayer = layer.querySelector('.day-current');
+  let nextLayer = layer.querySelector('.day-next');
+  if (currentDirection !== direction) {
+    direction = currentDirection;
+    if (nextLayer) layer.removeChild(nextLayer);
+    nextLayer = null;
+  }
+
+  // Current layer
+  if (!currentLayer) {
+    currentLayer = document.createElement('div');
+    currentLayer.className = 'day-layer day-current';
+    Object.assign(currentLayer.style, {
+      position: 'absolute', top: '0', left: '0',
+      width: '100%', height: '100%', zIndex: '31'
+    });
+    while (layer.firstChild) currentLayer.appendChild(layer.firstChild);
+    layer.appendChild(currentLayer);
+  }
+
+  // Next layer
+  if (!nextLayer) {
+    nextLayer = document.createElement('div');
+    nextLayer.className = 'day-layer day-next';
+    Object.assign(nextLayer.style, {
+      position: 'absolute', top: '0',
+      width: '100%', height: '100%',
+      left: direction > 0 ? '100%' : '-100%',
+      zIndex: '30'
+    });
+    layer.appendChild(nextLayer);
+
+    const newDate = getNextValidDate(currentDate, direction);
+    renderEventsForDate(newDate, appState.allEvents, nextLayer);
+  }
+
+  // Move layers
+  requestAnimationFrame(() => {
+    currentLayer.style.transition = 'none';
+    nextLayer.style.transition = 'none';
+    currentLayer.style.transform = `translateX(${limitedDx}px)`;
+    nextLayer.style.transform = `translateX(${limitedDx}px)`;
+  });
+}, { passive: true });
+
+// Touch end → snap ou commit
+swipeContainer.addEventListener('touchend', e => {
+  if (!isSwiping) return;
+  isSwiping = false;
+
+  const dx = e.changedTouches[0].clientX - startX;
+  const dt = Date.now() - startTime;
+  const velocity = dx / dt; 
+  const width = layer.offsetWidth;
+
+  const threshold = 0.5 * width;
+  const fastSwipe = Math.abs(velocity) > 0.5;
+  const commit = Math.abs(dx) > threshold || fastSwipe;
+
+  const currentLayer = layer.querySelector('.day-current');
+  const nextLayer = layer.querySelector('.day-next');
+  if (!currentLayer || !nextLayer) return;
+
+  if (commit) {
+  // Transition lente
+  currentLayer.style.transition = 'transform 0.65s cubic-bezier(0.25, 1, 0.5, 1)';
+  nextLayer.style.transition = 'transform 0.65s cubic-bezier(0.25, 1, 0.5, 1)';
+  currentLayer.style.transform = `translateX(${direction > 0 ? -width : width}px)`;
+  nextLayer.style.transform = `translateX(0px)`;
+
+    // ⚡ IMPORTANT : attendre la fin de la transition
+    const onTransitionEnd = () => {
+      currentLayer.removeEventListener('transitionend', onTransitionEnd);
+      if (currentLayer.parentNode) layer.removeChild(currentLayer);
+      nextLayer.className = 'day-layer day-current';
+      currentDate = getNextValidDate(currentDate, direction);
+    };
+    currentLayer.addEventListener('transitionend', onTransitionEnd);
+
+  } else {
+    // Retour lent
+    currentLayer.style.transition = 'transform 0.55s ease-out';
+    nextLayer.style.transition = 'transform 0.55s ease-out';
+    currentLayer.style.transform = `translateX(0px)`;
+    nextLayer.style.transform = `translateX(${direction > 0 ? '100%' : '-100%'} )`;
+  }
+
+
+});

@@ -73,7 +73,7 @@ button:hover { border-color: var(--primary); }
 
 main { 
 	grid-area: main; 
-	padding: 1px; 
+	padding: 0px; 
 	overflow-y: auto;
 	-webkit-overflow-scrolling: touch; /* Défilement fluide sur iOS */
 }
@@ -463,6 +463,20 @@ body.drawer-open #overlay {
 	border-right: 1px solid #ccc;
 	position: relative;
 	flex-shrink: 0;
+	margin-left: 0;
+	z-index: 35;
+	background-color: var(--bg);
+}
+
+.hours-column::before {
+	content: "";
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 82vh;
+	background-color: var(--bg); /* ou la couleur que tu veux */
+	z-index: -1;
 }
 
 .hours-column div {
@@ -473,6 +487,7 @@ body.drawer-open #overlay {
 	padding-right: 12px;
 	font-size: 12px;
 	color: #fff; /* heures en blanc */
+	z-index: 35;
 }
 
 .hour-slot {
@@ -480,6 +495,7 @@ body.drawer-open #overlay {
 	left: 0;
 	font-size: 12px;
 	color: #666;
+	z-index: 35;
 }
 
 .modal-content p {

@@ -698,9 +698,6 @@ ui.calendarDays.onclick = (e) => {
     ui.calendarModal.classList.add("hidden");
 };
 
-
-
-
 /* ---------- swipe globally on main ---------- */
 
 let startX = 0, startY = 0;
@@ -825,7 +822,7 @@ function renderEventsForDate(date, events, container = document.getElementById('
 			roomDiv.style.fontSize = '15px';
 			roomDiv.style.fontWeight = 'normal';
 			roomDiv.textContent = ev.location;
-      roomDiv.style.fontWeight = 500;
+      		roomDiv.style.fontWeight = 500;
 			div.appendChild(roomDiv);
 		}
 
@@ -888,8 +885,6 @@ if (savedUrl) {
     }
 }
 
-render();
-
 // PWA: register service worker
 if ('serviceWorker' in navigator) {
 	window.addEventListener('load', () => {
@@ -912,101 +907,39 @@ document.addEventListener('DOMContentLoaded', () => {
 const layer = document.getElementById('eventsLayer');
 let currentDate = new Date(appState.selectedDate);
 let direction = 0;
+let startTime = 0;
 
-// Prépare le container pour le swipe
 const swipeContainer = layer.parentElement;
-swipeContainer.style.position = 'relative';
-swipeContainer.style.overflow = 'hidden';
 
+const hoursColumn = document.querySelector('.hours-column');
+
+hoursColumn.addEventListener('touchstart', e => {
+  e.stopPropagation();
+});
+// Touch start
 swipeContainer.addEventListener('touchstart', e => {
   startX = e.touches[0].clientX;
+  startTime = Date.now();
   isSwiping = true;
   direction = 0;
 }, { passive: true });
 
+// Touch move
 swipeContainer.addEventListener('touchmove', e => {
   if (!isSwiping) return;
   const dx = e.touches[0].clientX - startX;
   if (Math.abs(dx) < 10) return;
 
   const currentDirection = dx < 0 ? 1 : -1;
-
   const width = layer.offsetWidth;
-  const maxExposure = 0.8 * width;
-  let limitedDx;
-  if (currentDirection > 0) { // next, dx <0
-    limitedDx = Math.max(-maxExposure, dx);
-  } else { // prev, dx >0
-    limitedDx = Math.min(maxExposure, dx);
-  }
-
-  // Si direction change mid-swipe, recréer nextLayer
-  let currentLayer = layer.querySelector('.day-current');
-  let nextLayer = layer.querySelector('.day-next');
-  if (currentDirection !== direction) {
-    direction = currentDirection;
-    if (nextLayer) layer.removeChild(nextLayer);
-    nextLayer = null;
-  }
-
-  if (!currentLayer) {
-    // Envelopper le contenu courant
-    currentLayer = document.createElement('div');
-    currentLayer.className = 'day-layer day-current';
-    currentLayer.style.position = 'absolute';
-    currentLayer.style.top = '0';
-    currentLayer.style.left = '0';
-    currentLayer.style.width = '100%';
-    currentLayer.style.height = '100%';
-    currentLayer.style.zIndex = '1';
-    while (layer.firstChild) currentLayer.appendChild(layer.firstChild);
-    layer.appendChild(currentLayer);
-  }
-
-  if (!nextLayer) {
-    // Créer next layer
-    nextLayer = document.createElement('div');
-    nextLayer.className = 'day-layer day-next';
-    nextLayer.style.position = 'absolute';
-    nextLayer.style.top = '0';
-    nextLayer.style.width = '100%';
-    nextLayer.style.height = '100%';
-    nextLayer.style.left = direction > 0 ? '100%' : '-100%';
-    nextLayer.style.zIndex = '0';
-    layer.appendChild(nextLayer);
-
-    // Rendre les événements du next valid day
-    const newDate = getNextValidDate(currentDate, direction);
-    renderEventsForDate(newDate, appState.allEvents, nextLayer);
-  }
-
-  // Déplacer en temps réel
-  requestAnimationFrame(() => {
-    currentLayer.style.transition = 'none';
-    nextLayer.style.transition = 'none';
-    currentLayer.style.transform = `translateX(${limitedDx}px)`;
-    nextLayer.style.transform = `translateX(${limitedDx}px)`;
-  });
-}, { passive: true });
-
-swipeContainer.addEventListener('touchmove', e => {
-  if (!isSwiping) return;
-  const dx = e.touches[0].clientX - startX;
-  if (Math.abs(dx) < 10) return;
-
-  const currentDirection = dx < 0 ? 1 : -1;
-
-  const width = layer.offsetWidth;
-  const maxExposure = 0.5 * width;
+  const maxExposure = 0.7 * width;
 
   let limitedDx = dx;
-  const absDx = Math.abs(dx);
-  if (absDx > maxExposure) {
-    limitedDx = maxExposure + (absDx - maxExposure) * 0.3;
-    limitedDx *= Math.sign(dx);
+  if (Math.abs(limitedDx) > maxExposure) {
+    limitedDx = maxExposure * Math.sign(limitedDx);
   }
 
-  // Si direction change mid-swipe, recréer nextLayer
+  // Reset si changement de direction
   let currentLayer = layer.querySelector('.day-current');
   let nextLayer = layer.querySelector('.day-next');
   if (currentDirection !== direction) {
@@ -1015,38 +948,35 @@ swipeContainer.addEventListener('touchmove', e => {
     nextLayer = null;
   }
 
+  // Current layer
   if (!currentLayer) {
-    // Envelopper le contenu courant
     currentLayer = document.createElement('div');
     currentLayer.className = 'day-layer day-current';
-    currentLayer.style.position = 'absolute';
-    currentLayer.style.top = '0';
-    currentLayer.style.left = '0';
-    currentLayer.style.width = '100%';
-    currentLayer.style.height = '100%';
-    currentLayer.style.zIndex = '1';
+    Object.assign(currentLayer.style, {
+      position: 'absolute', top: '0', left: '0',
+      width: '100%', height: '100%', zIndex: '31'
+    });
     while (layer.firstChild) currentLayer.appendChild(layer.firstChild);
     layer.appendChild(currentLayer);
   }
 
+  // Next layer
   if (!nextLayer) {
-    // Créer next layer
     nextLayer = document.createElement('div');
     nextLayer.className = 'day-layer day-next';
-    nextLayer.style.position = 'absolute';
-    nextLayer.style.top = '0';
-    nextLayer.style.width = '100%';
-    nextLayer.style.height = '100%';
-    nextLayer.style.left = direction > 0 ? '100%' : '-100%';
-    nextLayer.style.zIndex = '0';
+    Object.assign(nextLayer.style, {
+      position: 'absolute', top: '0',
+      width: '100%', height: '100%',
+      left: direction > 0 ? '100%' : '-100%',
+      zIndex: '30'
+    });
     layer.appendChild(nextLayer);
 
-    // Rendre les événements du next valid day
     const newDate = getNextValidDate(currentDate, direction);
     renderEventsForDate(newDate, appState.allEvents, nextLayer);
   }
 
-  // Déplacer en temps réel
+  // Move layers
   requestAnimationFrame(() => {
     currentLayer.style.transition = 'none';
     nextLayer.style.transition = 'none';
@@ -1054,3 +984,48 @@ swipeContainer.addEventListener('touchmove', e => {
     nextLayer.style.transform = `translateX(${limitedDx}px)`;
   });
 }, { passive: true });
+
+// Touch end → snap ou commit
+swipeContainer.addEventListener('touchend', e => {
+  if (!isSwiping) return;
+  isSwiping = false;
+
+  const dx = e.changedTouches[0].clientX - startX;
+  const dt = Date.now() - startTime;
+  const velocity = dx / dt; 
+  const width = layer.offsetWidth;
+
+  const threshold = 0.5 * width;
+  const fastSwipe = Math.abs(velocity) > 0.5;
+  const commit = Math.abs(dx) > threshold || fastSwipe;
+
+  const currentLayer = layer.querySelector('.day-current');
+  const nextLayer = layer.querySelector('.day-next');
+  if (!currentLayer || !nextLayer) return;
+
+  if (commit) {
+  // Transition lente
+  currentLayer.style.transition = 'transform 0.65s cubic-bezier(0.25, 1, 0.5, 1)';
+  nextLayer.style.transition = 'transform 0.65s cubic-bezier(0.25, 1, 0.5, 1)';
+  currentLayer.style.transform = `translateX(${direction > 0 ? -width : width}px)`;
+  nextLayer.style.transform = `translateX(0px)`;
+
+    // ⚡ IMPORTANT : attendre la fin de la transition
+    const onTransitionEnd = () => {
+      currentLayer.removeEventListener('transitionend', onTransitionEnd);
+      if (currentLayer.parentNode) layer.removeChild(currentLayer);
+      nextLayer.className = 'day-layer day-current';
+      currentDate = getNextValidDate(currentDate, direction);
+    };
+    currentLayer.addEventListener('transitionend', onTransitionEnd);
+
+  } else {
+    // Retour lent
+    currentLayer.style.transition = 'transform 0.55s ease-out';
+    nextLayer.style.transition = 'transform 0.55s ease-out';
+    currentLayer.style.transform = `translateX(0px)`;
+    nextLayer.style.transform = `translateX(${direction > 0 ? '100%' : '-100%'} )`;
+  }
+
+
+});
