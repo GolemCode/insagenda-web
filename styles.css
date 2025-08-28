@@ -355,12 +355,6 @@ body.drawer-open #overlay {
 	overflow-y: auto;
 }
 
-.schedule-container {
-	display: flex;
-	position: relative;
-	height: 100%;
-}
-
 .time-grid {
 	display: flex;
 	flex-direction: column;
@@ -474,7 +468,6 @@ body.drawer-open #overlay {
 	top: 0;
 	left: 0;
 	width: 100%;
-	height: 82vh;
 	background-color: var(--bg); /* ou la couleur que tu veux */
 	z-index: -1;
 }
