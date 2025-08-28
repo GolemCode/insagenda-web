@@ -927,6 +927,7 @@ swipeContainer.addEventListener('touchstart', e => {
 // Touch move
 swipeContainer.addEventListener('touchmove', e => {
   if (!isSwiping) return;
+  e.preventDefault();
   const dx = e.touches[0].clientX - startX;
   if (Math.abs(dx) < 10) return;
 
@@ -983,7 +984,7 @@ swipeContainer.addEventListener('touchmove', e => {
     currentLayer.style.transform = `translateX(${limitedDx}px)`;
     nextLayer.style.transform = `translateX(${limitedDx}px)`;
   });
-}, { passive: true });
+}, { passive: false });
 
 // Touch end → snap ou commit
 swipeContainer.addEventListener('touchend', e => {
@@ -1026,6 +1027,35 @@ swipeContainer.addEventListener('touchend', e => {
     currentLayer.style.transform = `translateX(0px)`;
     nextLayer.style.transform = `translateX(${direction > 0 ? '100%' : '-100%'} )`;
   }
-
-
 });
+
+function fillFromColumnToBottom() {
+  const column = document.querySelector('.hours-column');
+  const rect = column.getBoundingClientRect();
+  const distanceFromTop = rect.top; // distance entre le haut de la vue et .hours-column
+  const height = window.innerHeight - distanceFromTop;
+
+  const styleId = 'hours-column-fill-style';
+  let style = document.getElementById(styleId);
+  if (!style) {
+    style = document.createElement('style');
+    style.id = styleId;
+    document.head.appendChild(style);
+  }
+
+  style.textContent = `
+    .hours-column::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: ${height-20}px;
+      background-color: var(--bg);
+      z-index: -1;
+    }
+  `;
+}
+
+window.addEventListener('load', fillFromColumnToBottom);
+window.addEventListener('resize', fillFromColumnToBottom);

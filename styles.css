@@ -74,8 +74,9 @@ button:hover { border-color: var(--primary); }
 main { 
 	grid-area: main; 
 	padding: 0px; 
-	overflow-y: auto;
+	overflow-y: hidden;
 	-webkit-overflow-scrolling: touch; /* Défilement fluide sur iOS */
+	overflow-x: hidden;
 }
 
 .loading, .no-events { margin: 16px; color: var(--muted); text-align: center; }
