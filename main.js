@@ -4,7 +4,8 @@ const STORAGE_KEYS = {
 	icsUrl: 'insagenda.icsUrl',
 	selectedCourses: 'insagenda.selectedCourses',
 	eventsJson: 'insagenda.eventsJson',
-	lastUpdated: 'insagenda.lastUpdated'
+	lastUpdated: 'insagenda.lastUpdated',
+	knownCourses: 'insagenda.knownCourses'
 };
 
 const ui = {
@@ -50,7 +51,8 @@ let appState = {
 	selectedCourses: new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.selectedCourses) || '[]')),
 	selectedDate: new Date(),
 	lastUpdated: localStorage.getItem(STORAGE_KEYS.lastUpdated) || null,
-	calendarCache: {} // Cache pour optimiser le rendu du calendrier
+	calendarCache: {}, // Cache pour optimiser le rendu du calendrier
+	knownCourses: new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.knownCourses) || '[]'))
 };
 
 /* ---------- utilitaires date / tri ---------- */
@@ -249,15 +251,27 @@ function persistFilters() {
 	localStorage.setItem(STORAGE_KEYS.selectedCourses, JSON.stringify([...appState.selectedCourses]));
 }
 
+function persistKnownCourses() {
+	localStorage.setItem(STORAGE_KEYS.knownCourses, JSON.stringify([...appState.knownCourses]));
+}
+
 function autoSelectNewCourses() {
-	let added = false;
+	let selectionChanged = false;
+	let knownChanged = false;
 	for (const name of appState.uniqueCourseNames) {
-		if (!appState.selectedCourses.has(name)) {
-			appState.selectedCourses.add(name);
-			added = true;
+		const isKnown = appState.knownCourses.has(name);
+		if (!isKnown) {
+			// Nouveau cours jamais vu → on le coche par défaut
+			if (!appState.selectedCourses.has(name)) {
+				appState.selectedCourses.add(name);
+				selectionChanged = true;
+			}
+			appState.knownCourses.add(name);
+			knownChanged = true;
 		}
 	}
-	if (added) persistFilters();
+	if (selectionChanged) persistFilters();
+	if (knownChanged) persistKnownCourses();
 }
 
 function filterEventsForDate(events, date, selectedCourses) {
