@@ -249,6 +249,17 @@ function persistFilters() {
 	localStorage.setItem(STORAGE_KEYS.selectedCourses, JSON.stringify([...appState.selectedCourses]));
 }
 
+function autoSelectNewCourses() {
+	let added = false;
+	for (const name of appState.uniqueCourseNames) {
+		if (!appState.selectedCourses.has(name)) {
+			appState.selectedCourses.add(name);
+			added = true;
+		}
+	}
+	if (added) persistFilters();
+}
+
 function filterEventsForDate(events, date, selectedCourses) {
     return events.filter(ev => {
         const inDate =
@@ -353,10 +364,7 @@ async function fetchAndLoad(url) {
         }))));
         localStorage.setItem(STORAGE_KEYS.lastUpdated, appState.lastUpdated);
 
-        if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
-            appState.selectedCourses = new Set(appState.uniqueCourseNames);
-            persistFilters();
-        }
+		autoSelectNewCourses();
 
         // Construire le cache
         appState.calendarCache = buildEventsByDate(events, appState.selectedCourses);
@@ -381,10 +389,7 @@ async function fetchAndLoad(url) {
             appState.uniqueCourseNames = computeUniqueCourseNames(events);
             appState.lastUpdated = localStorage.getItem(STORAGE_KEYS.lastUpdated);
 
-            if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
-                appState.selectedCourses = new Set(appState.uniqueCourseNames);
-                persistFilters();
-            }
+			autoSelectNewCourses();
 
             appState.calendarCache = buildEventsByDate(events, appState.selectedCourses);
 
@@ -856,10 +861,7 @@ if (savedUrl) {
         appState.uniqueCourseNames = computeUniqueCourseNames(parsed);
         appState.lastUpdated = localStorage.getItem(STORAGE_KEYS.lastUpdated);
 
-        if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
-            appState.selectedCourses = new Set(appState.uniqueCourseNames);
-            persistFilters();
-        }
+		autoSelectNewCourses();
 
         renderFilters();
         render();
@@ -875,10 +877,7 @@ if (savedUrl) {
             appState.lastUpdated = Date.now().toString();
             localStorage.setItem(STORAGE_KEYS.eventsJson, JSON.stringify(events.map(e => ({...e, start: e.start.toISOString(), end: e.end.toISOString()}))));
             localStorage.setItem(STORAGE_KEYS.lastUpdated, appState.lastUpdated);
-            if (appState.selectedCourses.size === 0 && appState.uniqueCourseNames.length > 0) {
-                appState.selectedCourses = new Set(appState.uniqueCourseNames);
-                persistFilters();
-            }
+			autoSelectNewCourses();
             renderFilters();
             render();
         });
