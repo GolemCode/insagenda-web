@@ -519,6 +519,41 @@ ui.saveUrl.addEventListener('click', async () => { // async ici
     }
 });
 
+// Import de fichier ICS (disponible à tout moment)
+ui.fileImport.addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    try {
+        const text = await file.text();
+        const events = parseICS(text);
+        appState.allEvents = events;
+        appState.uniqueCourseNames = computeUniqueCourseNames(events);
+        appState.lastUpdated = Date.now().toString();
+
+        localStorage.setItem(STORAGE_KEYS.eventsJson, JSON.stringify(events.map(e => ({
+            ...e,
+            start: e.start.toISOString(),
+            end: e.end.toISOString()
+        }))));
+        localStorage.setItem(STORAGE_KEYS.lastUpdated, appState.lastUpdated);
+
+        // Auto-cocher uniquement les nouveaux cours jamais vus
+        autoSelectNewCourses();
+
+        // Rebuild cache calendrier
+        appState.calendarCache = buildEventsByDate(events, appState.selectedCourses);
+
+        renderFilters();
+        render();
+        showToast(`Import réussi : ${events.length} événements`, 'success', 3000);
+    } catch (err) {
+        showToast(`Erreur import ICS: ${err && err.message ? err.message : err}`, 'error', 3000);
+    } finally {
+        // Permettre de réimporter le même fichier si besoin
+        e.target.value = '';
+    }
+});
+
 ui.refresh.addEventListener('click', () => { const url = localStorage.getItem(STORAGE_KEYS.icsUrl) || ''; setSelectedDate(new Date()); if (url) fetchAndLoad(url); else ui.fileImport.click(); });
 ui.mobileRefresh.addEventListener('click', () => { const url = localStorage.getItem(STORAGE_KEYS.icsUrl) || ''; setSelectedDate(new Date()); if (url) fetchAndLoad(url); else ui.fileImport.click(); });
 
